@@ -9,6 +9,8 @@ using Content.Shared.GameTicking;
 using Robust.Shared.Player;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
+using Content.Shared.Hands.EntitySystems;
+using Content.Shared.Hands.Components;
 
 namespace Content.Shared._Starlight.Language.Systems;
 
@@ -44,6 +46,8 @@ public abstract partial class SharedLanguageSystem : EntitySystem
     /// </summary>
     [ViewVariables(VVAccess.ReadOnly)]
     public ImmutableHashSet<ProtoId<LanguagePrototype>> Languages = ImmutableHashSet<ProtoId<LanguagePrototype>>.Empty;
+
+    [Dependency] private readonly SharedHandsSystem _handsSystem = default!;
 
     public override void Initialize()
     {
@@ -397,25 +401,38 @@ public abstract partial class SharedLanguageSystem : EntitySystem
         Dirty(ent);
     }
 
-    /// <summary>
-    /// Check if the listener knows part of the language spoken.
-    /// </summary>
-    /// <param name="listener">The entity hearing the language</param>
-    /// <param name="lang">The language being used</param>
-    /// <param name="words">The words known by the listening entity</param>
-    /// <returns>True if they know some words in the passed language, otherwise false.</returns>
     public bool TryGetKnownWords(EntityUid listener, ProtoId<LanguagePrototype> lang, [NotNullWhen(true)] out HashSet<string>? words)
+{
+    words = null;
+    var aggregated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    // For use by traits later, or translation methods that don't require holding a book
+    if (TryComp<PartialLanguageComponent>(listener, out var partial))
     {
-        words = null;
-        if (!TryComp<PartialLanguageComponent>(listener, out var partialLang))
-            return false;
-        if (!partialLang.KnownWords.TryGetValue(lang, out var found))
-            return false;
-        if (found.Count == 0)
-            return false;
-        words = found;
-        return true;
+        if (partial.KnownWords.TryGetValue(lang, out var traitWords))
+            aggregated.UnionWith(traitWords);
     }
+
+    // Phrasebooks only work when they are held in a hand, so you cannot stuff your bag full of books and have a partial understanding of many things.
+    if (TryComp<HandsComponent>(listener, out var hands))
+    {
+        
+        foreach (var held in _handsSystem.EnumerateHeld(listener))
+        {
+            if (TryComp<PhrasebookComponent>(held, out var book))
+            {
+                if (book.KnownWords.TryGetValue(lang, out var bookWords))
+                    aggregated.UnionWith(bookWords);
+            }
+        }
+    }
+
+    if (aggregated.Count == 0)
+        return false;
+
+    words = aggregated;
+    return true;
+}
 
     public string ObfuscateSpeechPartial(string message, LanguagePrototype language, HashSet<string> known)
     {

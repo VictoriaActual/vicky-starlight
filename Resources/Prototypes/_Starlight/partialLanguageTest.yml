@@ -7,3 +7,29 @@
     - type: PartialLanguage
       knownWords:
         Bubblish: [yes, no, please, thank, you]
+
+- type: entity
+  parent: BaseItem
+  id: PhrasebookBubblish
+  name: bubblish phrasebook
+  description: A pocket guide with a few common Bubblish words.
+  components:
+    - type: Sprite
+      sprite: Objects/Misc/books.rsi
+      layers:
+      - state: paper
+      - state: cover_base
+        color: "#332d27"
+        map: [ "cover" ]
+      - state: decor_wingette
+        color: "#453f3a"
+        map: [ "decor" ]
+      - state: icon_text
+        map: [ "icon" ]
+      - state: overlay_null
+        map: [ "overlay" ]
+    - type: Item
+      size: Small
+    - type: Phrasebook
+      knownWords:
+        Bubblish: [yes, no, please, thank, you]
