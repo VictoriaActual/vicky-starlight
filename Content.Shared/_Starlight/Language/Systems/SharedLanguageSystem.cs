@@ -1,12 +1,13 @@
 using System.Collections.Immutable;
-using System.Text;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Text;
 using Content.Shared._Starlight.Language.Components;
 using Content.Shared._Starlight.Language.Events;
-using Content.Shared.GameTicking;
-using Robust.Shared.Prototypes;
 using Content.Shared.Cloning.Events;
+using Content.Shared.GameTicking;
 using Robust.Shared.Player;
+using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
 
 namespace Content.Shared._Starlight.Language.Systems;
@@ -394,6 +395,67 @@ public abstract partial class SharedLanguageSystem : EntitySystem
             RaiseLocalEvent(ent, new LanguagesUpdateEvent());
 
         Dirty(ent);
+    }
+
+    /// <summary>
+    /// Check if the listener knows part of the language spoken.
+    /// </summary>
+    /// <param name="listener">The entity hearing the language</param>
+    /// <param name="lang">The language being used</param>
+    /// <param name="words">The words known by the listening entity</param>
+    /// <returns>True if they know some words in the passed language, otherwise false.</returns>
+    public bool TryGetKnownWords(EntityUid listener, ProtoId<LanguagePrototype> lang, [NotNullWhen(true)] out HashSet<string>? words)
+    {
+        words = null;
+        if (!TryComp<PartialLanguageComponent>(listener, out var partialLang))
+            return false;
+        if (!partialLang.KnownWords.TryGetValue(lang, out var found))
+            return false;
+        if (found.Count == 0)
+            return false;
+        words = found;
+        return true;
+    }
+
+    public string ObfuscateSpeechPartial(string message, LanguagePrototype language, HashSet<string> known)
+    {
+        if (known.Count == 0)
+            return ObfuscateSpeech(message, language);
+
+        var sb = new StringBuilder(message.Length);
+        int wordStart = -1;
+
+        for (int i = 0; i <= message.Length; i++)
+        {
+            bool isWordChar = i < message.Length && (char.IsLetter(message[i]) || message[i] == '\'');
+
+            if (isWordChar)
+            {
+                if (wordStart == -1)
+                    wordStart = i;
+            }
+            else
+            {
+                if (wordStart != -1)
+                {
+                    var wordLen = i - wordStart;
+                    var word = message.Substring(wordStart, wordLen);
+
+                    // known set is lower-cased
+                    if (known.Contains(word.ToLowerInvariant()))
+                        sb.Append(word); // keep original casing, don't send it back lowercased
+                    else
+                        sb.Append(ObfuscateSpeech(word, language));
+
+                    wordStart = -1;
+                }
+
+                if (i < message.Length)
+                    sb.Append(message[i]);
+            }
+        }
+
+        return sb.ToString();
     }
 
     #endregion

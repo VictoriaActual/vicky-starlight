@@ -896,7 +896,7 @@ public sealed partial class ChatSystem : SharedChatSystem
             if (entRange == MessageRangeCheckResult.Disallowed)
                 continue;
             var entHideChat = entRange == MessageRangeCheckResult.HideChat;
-            // Starlight - start
+            // Starlight - Start
             if (session.AttachedEntity is not { Valid: true } playerEntity)
                 continue;
             if (channel == ChatChannel.Local &&
@@ -904,22 +904,48 @@ public sealed partial class ChatSystem : SharedChatSystem
                 HasComp<HumanoidAppearanceComponent>(source))
                 continue;
 
-            // If the channel does not support languages, or the entity can understand the message, send the original message, otherwise send the obfuscated version
+            // If the channel does not support languages, or the entity can understand the message, send the original message. Otherwise check if they can partially understand the message, or just send the obfuscated version
+            var isAnon = HasComp<IgnoreHumanoidsComponent>(playerEntity) && HasComp<HumanoidAppearanceComponent>(source);
             var displayWrappedMessage = wrappedMessage;
             var displayObfuscatedMessage = obfuscatedWrappedMessage;
+            string? unknownName = null;
 
-            if (HasComp<IgnoreHumanoidsComponent>(playerEntity) && HasComp<HumanoidAppearanceComponent>(source))
+            if (isAnon)
             {
-                var unknownName = Loc.GetString("ignore-humanoids-unknown-name");
+                unknownName = Loc.GetString("ignore-humanoids-unknown-name");
                 displayWrappedMessage = WrapAnonymizedMessage(channel, source, message, unknownName, language, wrappedMessage, false);
                 displayObfuscatedMessage = WrapAnonymizedMessage(channel, source, obfuscated, unknownName, language, obfuscatedWrappedMessage, true);
             }
 
             if (ignoreLanguage || _language.CanUnderstand(playerEntity, language.ID))
+            {
                 _chatManager.ChatMessageToOne(channel, message, displayWrappedMessage, data.RemoteSource ?? source, entHideChat, session.Channel, author: author);
+            }
+            else if (_language.TryGetKnownWords(playerEntity, language.ID, out var knownWords))
+            {
+                var partial = _language.ObfuscateSpeechPartial(message, language, knownWords);
+
+                string partialWrapped;
+                if (isAnon)
+                {
+                    partialWrapped = WrapAnonymizedMessage(channel, source, partial, unknownName!, language, wrappedMessage, true);
+                }
+                else
+                {
+                    // Re-wrap the partial text with the same speaker name logic as SendEntitySpeak. Cargo culting for the win~
+                    var nameEv = new TransformSpeakerNameEvent(source, Name(source));
+                    RaiseLocalEvent(source, nameEv);
+                    var voiceName = FormattedMessage.EscapeText(nameEv.VoiceName);
+                    partialWrapped = WrapPublicMessage(source, voiceName, partial, language: language, obfuscated: true);
+                }
+
+                _chatManager.ChatMessageToOne(channel, partial, partialWrapped, data.RemoteSource ?? source, entHideChat, session.Channel, author: author);
+            }
             else
+            {
                 _chatManager.ChatMessageToOne(channel, obfuscated, displayObfuscatedMessage, data.RemoteSource ?? source, entHideChat, session.Channel, author: author);
-            // Starlight - end
+            }
+        // Starlight - End
         }
 
         _replay.RecordServerMessage(new ChatMessage(channel, message, wrappedMessage, GetNetEntity(source), null, MessageRangeHideChatForReplay(range)));

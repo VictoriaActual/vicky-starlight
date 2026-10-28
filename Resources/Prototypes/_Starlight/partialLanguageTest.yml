@@ -1,0 +1,9 @@
+- type: entity
+  parent: MobHuman
+  id: TestMobPartialBubblish
+  name: partial bubblish tester
+  description: For testing PartialLanguageComponent
+  components:
+    - type: PartialLanguage
+      knownWords:
+        Bubblish: [yes, no, please, thank, you]
