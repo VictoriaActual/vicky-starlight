@@ -30,6 +30,15 @@
         map: [ "overlay" ]
     - type: Item
       size: Small
+    - type: ActivatableUI
+      key: enum.PartialLanguageSpeakerUiKey.Key
+      singleUser: true
+      inHandsOnly: true
+    - type: UserInterface
+      interfaces:
+        enum.PartialLanguageSpeakerUiKey.Key:
+          type: PartialLanguageSpeakerBui
     - type: Phrasebook
+      language: Bubblish
       knownWords:
         Bubblish: [yes, no, please, thank, you]

@@ -1,0 +1,13 @@
+- type: entity
+  id: ActionOpenPartialSpeaker
+  name: Open Partial Speaker
+  description: Open your known phrases
+  components:
+    - type: Action
+      itemIconStyle: BigAction
+      icon:
+        sprite: _Starlight/Objects/Specific/Chapel/bibble/icon.png
+        state: icon
+      useDelay: 0.5
+    - type: InstantAction
+      event: !type:OpenPartialSpeakerActionEvent
